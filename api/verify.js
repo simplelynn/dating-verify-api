@@ -1,7 +1,7 @@
-import FormData from 'form-data';
-import fetch from 'node-fetch';
+const FormData = require('form-data');
+const fetch = require('node-fetch');
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -71,7 +71,8 @@ export default async function handler(req, res) {
       return res.status(400).json({ 
         error: 'Failed to get search ID from FaceCheck',
         message: 'The upload may have failed. Check if your token is valid.',
-        status: uploadResponse.status
+        status: uploadResponse.status,
+        preview: uploadResult.substring(0, 200)
       });
     }
 
@@ -114,8 +115,7 @@ export default async function handler(req, res) {
     console.error('Error in face verification:', error);
     return res.status(500).json({ 
       error: error.message,
-      message: 'Failed to complete face verification',
-      details: error.stack
+      message: 'Failed to complete face verification'
     });
   }
-}
+};
