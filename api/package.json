@@ -2,8 +2,5 @@
   "name": "dating-verify-api",
   "version": "1.0.0",
   "description": "Middleware API for image verification",
-  "main": "api/verify.js",
-  "engines": {
-    "node": "18.x"
-  }
+  "main": "api/verify.js"
 }
