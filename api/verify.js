@@ -88,23 +88,18 @@ module.exports = async function handler(req, res) {
 
     const uploadResult = await uploadResponse.text();
     console.log('FaceCheck response status:', uploadResponse.status);
+    console.log('FaceCheck full response:', uploadResult); // LOG FULL RESPONSE
     
     // Look for search ID in response
     const idMatch = uploadResult.match(/id_search=(\d+)/);
     
     if (!idMatch || !idMatch[1]) {
-      // If no ID found, return error with details
-      console.error('No search ID found in response');
-      return res.status(400).json({ 
-        error: 'FaceCheck upload failed',
-        message: 'Could not get search ID from FaceCheck',
+      // Return the FULL response so we can see what FaceCheck sent
+      return res.status(200).json({ 
+        warning: 'No search ID found, but here is what FaceCheck returned',
         facecheck_status: uploadResponse.status,
-        response_preview: uploadResult.substring(0, 300),
-        possible_issues: [
-          'Token might be expired',
-          'Image format not supported',
-          'FaceCheck API changed'
-        ]
+        facecheck_response: uploadResult,
+        note: 'Check if the response mentions authentication or other errors'
       });
     }
 
