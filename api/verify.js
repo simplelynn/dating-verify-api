@@ -13,105 +13,47 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { image_url } = req.body;
-  
-  // Your FaceCheck authentication token
-  const authToken = 'wV1cRvip6IZSFLf5gS/3RZbSTc+Vq1DvSxuSifR0D7HokiBcLi0WUpRRg91Tad6bTaX4wq7I8Ak=';
+  // Debug: Log what we received
+  console.log('Request body:', req.body);
+  console.log('Image URL:', req.body?.image_url);
 
+  const { image_url } = req.body || {};
+  
   if (!image_url) {
     return res.status(400).json({ 
       error: 'image_url is required',
-      message: 'Please provide an image URL to verify'
+      received_body: req.body,
+      message: 'Please provide an image_url in the request body'
     });
   }
 
   try {
-    console.log('Starting verification for:', image_url);
+    // First, just test if we can download the image
+    console.log('Testing image download from:', image_url);
     
-    // Step 1: Download the image from URL
     const imageResponse = await fetch(image_url);
     
     if (!imageResponse.ok) {
-      throw new Error(`Failed to download image: ${imageResponse.status}`);
-    }
-    
-    const imageBuffer = await imageResponse.arrayBuffer();
-    console.log('Image downloaded, size:', imageBuffer.byteLength);
-    
-    // Step 2: Upload to FaceCheck.ID
-    const formData = new FormData();
-    const blob = new Blob([imageBuffer], { type: 'image/jpeg' });
-    formData.append('images', blob, 'image.jpg');
-    
-    console.log('Uploading to FaceCheck.ID...');
-    
-    const uploadResponse = await fetch('https://facecheck.id/api/upload_pic', {
-      method: 'POST',
-      headers: {
-        'Authentication-Token': authToken
-      },
-      body: formData
-    });
-
-    const uploadResult = await uploadResponse.text();
-    console.log('Upload response status:', uploadResponse.status);
-    
-    // Step 3: Parse the ID from response
-    // FaceCheck returns HTML with id_search parameter
-    const idMatch = uploadResult.match(/id_search=(\d+)/);
-    
-    if (!idMatch || !idMatch[1]) {
-      console.error('Could not find id_search in response');
       return res.status(400).json({ 
-        error: 'Failed to get search ID from FaceCheck',
-        message: 'The image was uploaded but no search ID was returned'
+        error: 'Failed to download image',
+        status: imageResponse.status,
+        image_url: image_url
       });
     }
-
-    const searchId = idMatch[1];
-    console.log('Got search ID:', searchId);
-
-    // Step 4: Wait a bit for processing
-    await new Promise(resolve => setTimeout(resolve, 3000));
-
-    // Step 5: Get search results
-    console.log('Fetching search results...');
-    const resultsResponse = await fetch(`https://facecheck.id/api/search_pic?id_search=${searchId}`, {
-      headers: {
-        'Authentication-Token': authToken
-      }
-    });
-
-    const resultsText = await resultsResponse.text();
     
-    // Try to parse as JSON
-    let searchResults;
-    try {
-      searchResults = JSON.parse(resultsText);
-    } catch (e) {
-      // If not JSON, return the search URL for manual checking
-      console.log('Results not in JSON format');
-      searchResults = {
-        message: 'Search completed - check results at URL',
-        results_url: `https://facecheck.id/search/${searchId}`,
-        raw_response: resultsText.substring(0, 200) + '...'
-      };
-    }
-    
-    // Step 6: Return results to Bubble
     return res.status(200).json({
       success: true,
-      search_id: searchId,
-      results_url: `https://facecheck.id/search/${searchId}`,
-      results: searchResults,
-      message: 'Face search completed successfully'
+      message: 'Image URL is valid and accessible',
+      image_url: image_url,
+      next_step: 'Ready to integrate with FaceCheck'
     });
 
   } catch (error) {
-    console.error('Error in face verification:', error);
+    console.error('Error:', error);
     return res.status(500).json({ 
       error: error.message,
-      message: 'Failed to complete face verification'
+      image_url: image_url,
+      message: 'Failed to process request'
     });
   }
 }
