@@ -2,32 +2,16 @@ const FormData = require('form-data');
 const fetch = require('node-fetch');
 
 module.exports = async function handler(req, res) {
-  // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-  // Handle preflight
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
+  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  // Debug: Log what we received
-  console.log('Request body:', JSON.stringify(req.body));
-  
-  // Try multiple parameter names in case Bubble sends differently
   const photo_url = req.body?.photo_url || req.body?.image_url || req.body?.url;
-  
-  console.log('Extracted URL:', photo_url);
-  console.log('Type:', typeof photo_url);
-
-  // Check if we got a valid URL
   if (!photo_url || photo_url === 'null' || photo_url === null) {
-    return res.status(400).json({ 
+    return res.status(400).json({
       error: 'No URL provided',
       message: 'Please provide a photo_url in the request',
       received_body: req.body,
@@ -35,10 +19,9 @@ module.exports = async function handler(req, res) {
     });
   }
 
-  // Validate it's a real URL
   try {
-    new URL(photo_url);
-  } catch (urlError) {
+    new URL(photo_url); // Validate it's a real URL
+  } catch {
     return res.status(400).json({
       error: 'Invalid URL format',
       message: 'The photo_url must be a valid URL',
@@ -46,15 +29,10 @@ module.exports = async function handler(req, res) {
     });
   }
 
-  // Your FaceCheck token
-  const authToken = 'wV1cRvip6IZSFLf5gS/3RZbSTc+Vq1DvSxuSifR0D7HokiBcLi0WUpRRg91Tad6bTaX4wq7I8Ak=';
+  const authToken = process.env.FACECHECK_API_KEY;
 
   try {
-    console.log('Downloading image from:', photo_url);
-    
-    // Download the image
     const imageResponse = await fetch(photo_url);
-    
     if (!imageResponse.ok) {
       return res.status(400).json({
         error: 'Failed to download image',
@@ -62,40 +40,28 @@ module.exports = async function handler(req, res) {
         url: photo_url
       });
     }
-    
-    // Get image as buffer
+
     const imageBuffer = await imageResponse.buffer();
-    console.log('Image downloaded, size:', imageBuffer.length);
-    
-    // Create form data
     const formData = new FormData();
     formData.append('images', imageBuffer, {
       filename: 'image.jpg',
       contentType: 'image/jpeg'
     });
-    
-    console.log('Uploading to FaceCheck.ID...');
-    
-    // Upload to FaceCheck
+
     const uploadResponse = await fetch('https://facecheck.id/api/upload_pic', {
       method: 'POST',
       headers: {
-        'Authentication-Token': authToken,
+        Authorization: `APIKEY ${authToken}`,
         ...formData.getHeaders()
       },
       body: formData
     });
 
     const uploadResult = await uploadResponse.text();
-    console.log('FaceCheck response status:', uploadResponse.status);
-    console.log('FaceCheck full response:', uploadResult); // LOG FULL RESPONSE
-    
-    // Look for search ID in response
     const idMatch = uploadResult.match(/id_search=(\d+)/);
-    
+
     if (!idMatch || !idMatch[1]) {
-      // Return the FULL response so we can see what FaceCheck sent
-      return res.status(200).json({ 
+      return res.status(200).json({
         warning: 'No search ID found, but here is what FaceCheck returned',
         facecheck_status: uploadResponse.status,
         facecheck_response: uploadResult,
@@ -103,17 +69,13 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // We got a search ID!
     const searchId = idMatch[1];
-    console.log('Success! Search ID:', searchId);
 
-    // Return success with the search URL
     return res.status(200).json({
       success: true,
       search_id: searchId,
       results_url: `https://facecheck.id/search/${searchId}`,
       message: 'Face search started successfully!',
-      next_steps: 'Visit the results_url to see matches',
       debug_info: {
         image_size: imageBuffer.length,
         upload_status: uploadResponse.status,
@@ -123,7 +85,7 @@ module.exports = async function handler(req, res) {
 
   } catch (error) {
     console.error('Error:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: error.message,
       type: error.constructor.name,
       message: 'Something went wrong during face verification'
