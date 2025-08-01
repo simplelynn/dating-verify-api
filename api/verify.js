@@ -16,20 +16,37 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { image_url } = req.body;
+  // Debug: Log the entire request body
+  console.log('Request body:', JSON.stringify(req.body));
   
-  // Your FaceCheck authentication token
-  const authToken = 'wV1cRvip6IZSFLf5gS/3RZbSTc+Vq1DvSxuSifR0D7HokiBcLi0WUpRRg91Tad6bTaX4wq7I8Ak=';
+  const { image_url } = req.body || {};
+  
+  // Debug: Log the extracted image_url
+  console.log('Extracted image_url:', image_url);
+  console.log('Type of image_url:', typeof image_url);
 
   if (!image_url) {
     return res.status(400).json({ 
       error: 'image_url is required',
-      message: 'Please provide an image URL to verify'
+      message: 'Please provide an image URL to verify',
+      received: req.body
+    });
+  }
+
+  // Validate URL format
+  try {
+    new URL(image_url);
+  } catch (urlError) {
+    return res.status(400).json({
+      error: 'Invalid URL format',
+      message: 'The image_url must be a valid URL',
+      received_url: image_url,
+      url_error: urlError.message
     });
   }
 
   try {
-    console.log('Starting verification for:', image_url);
+    console.log('Starting download from URL:', image_url);
     
     // Step 1: Download the image
     const imageResponse = await fetch(image_url);
@@ -54,7 +71,7 @@ module.exports = async function handler(req, res) {
     const uploadResponse = await fetch('https://facecheck.id/api/upload_pic', {
       method: 'POST',
       headers: {
-        'Authentication-Token': authToken,
+        'Authentication-Token': 'wV1cRvip6IZSFLf5gS/3RZbSTc+Vq1DvSxuSifR0D7HokiBcLi0WUpRRg91Tad6bTaX4wq7I8Ak=',
         ...formData.getHeaders()
       },
       body: formData
@@ -62,60 +79,45 @@ module.exports = async function handler(req, res) {
 
     const uploadResult = await uploadResponse.text();
     console.log('Upload response status:', uploadResponse.status);
+    console.log('Upload response preview:', uploadResult.substring(0, 200));
     
     // Step 4: Parse the search ID from response
     const idMatch = uploadResult.match(/id_search=(\d+)/);
     
     if (!idMatch || !idMatch[1]) {
-      console.error('Response:', uploadResult.substring(0, 500));
       return res.status(400).json({ 
         error: 'Failed to get search ID from FaceCheck',
         message: 'The upload may have failed. Check if your token is valid.',
         status: uploadResponse.status,
-        preview: uploadResult.substring(0, 200)
+        response_preview: uploadResult.substring(0, 500)
       });
     }
 
     const searchId = idMatch[1];
     console.log('Got search ID:', searchId);
 
-    // Step 5: Wait for processing
-    await new Promise(resolve => setTimeout(resolve, 2000));
-
-    // Step 6: Get results
-    const resultsResponse = await fetch(`https://facecheck.id/api/search_pic?id_search=${searchId}`, {
-      headers: {
-        'Authentication-Token': authToken
-      }
-    });
-
-    let searchResults;
-    const resultsText = await resultsResponse.text();
-    
-    try {
-      searchResults = JSON.parse(resultsText);
-    } catch (e) {
-      searchResults = {
-        status: 'processing',
-        message: 'Results still processing, check URL',
-        raw: resultsText.substring(0, 200)
-      };
-    }
-    
-    // Return results
+    // Return immediately with search URL
     return res.status(200).json({
       success: true,
       search_id: searchId,
       results_url: `https://facecheck.id/search/${searchId}`,
-      results: searchResults,
-      message: 'Face search completed successfully'
+      message: 'Face search initiated. Results may take a moment to process.',
+      debug: {
+        image_url_used: image_url,
+        search_id: searchId
+      }
     });
 
   } catch (error) {
     console.error('Error in face verification:', error);
     return res.status(500).json({ 
       error: error.message,
-      message: 'Failed to complete face verification'
+      message: 'Failed to complete face verification',
+      stack: error.stack,
+      debug: {
+        attempted_url: image_url,
+        error_type: error.constructor.name
+      }
     });
   }
 };
