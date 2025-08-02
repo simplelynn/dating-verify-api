@@ -45,7 +45,7 @@ module.exports = async function handler(req, res) {
   }
 
   // Your FaceCheck token
-  const APITOKEN = 'ZgfDWNfX+nI1X91g7Ee1SRz4k64y79/7B2G/vCjjsJm1Eob0gGS1fWphRX3x4m4HrToxwS6fEFU=';
+  const APITOKEN = 'huq5OCTr3CQEz0bheSPnG+Hd4KCWvQfibpQ+B2HrbrVBHtK3JkuiILcLF8zmdBI0nQvBmMTsji0=';
   const TESTING_MODE = false; // Set to false to use real credits
 
   try {
