@@ -45,7 +45,7 @@ module.exports = async function handler(req, res) {
   }
 
   // Your NEW FaceCheck token
-  const authToken = 'ZgfDWNYX+nI1X91g7Ee1SRz4k64y78/7B2G/vCjjsJm1Eob0gGS1fWphRX3x4m4HrToxwS6fEFU=';
+  const authToken = 'ZgfDWNfX+nliX9ig7Ee1SRz4k64y79/7B2G/vCjjsJm1Eob0gGS1fWphRX3x4m4H+ToxwS6fEFU=';
 
   try {
     console.log('Downloading image from:', photo_url);
